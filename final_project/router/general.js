@@ -2,6 +2,7 @@ const express = require('express');
 let books = require("./booksdb.js");
 let isValid = require("./auth_users").isValid;
 let users = require("./auth_users").users;
+const axios = require('axios');
 const public_users = express.Router();
 
 
@@ -87,6 +88,81 @@ public_users.get('/review/:isbn',function (req, res) {
   } else {
     return res.status(404).json({ message: "Book not found" });
   }
+});
+
+//  Get book reviews
+public_users.get("/async-books", async (req, res) => {
+  try {
+    const response = await axios.get('http://localhost:5000/');
+    return res.status(200).json(response.data);
+  } catch (error) {
+    return res.status(500).json({ message: "Error fetching books", error: error.message });
+  }
+});
+
+//  Get book review by ISBN
+public_users.get('/promise-isbn/:isbn', (req, res) => {
+    const isbn = req.params.isbn;
+
+    axios.get(`http://localhost:5000/isbn/${isbn}`)
+        .then(response => {
+            res.status(200).json(response.data);
+        })
+        .catch(error => {
+            res.status(404).json({ message: "Book not found", error: error.message });
+        });
+});
+
+//  Get book reviews by author
+public_users.get('/promise-author/:author', (req, res) => {
+    const author = req.params.author;
+
+    axios.get('http://localhost:5000/')
+        .then(response => {
+            const books = response.data;
+            const filteredBooks = [];
+
+            for (const isbn in books) {
+                if (books[isbn].author.toLowerCase() === author.toLowerCase()) {
+                    filteredBooks.push({ isbn, ...books[isbn] });
+                }
+            }
+
+            if (filteredBooks.length > 0) {
+                res.status(200).json(filteredBooks);
+            } else {
+                res.status(404).json({ message: "No books found by this author" });
+            }
+        })
+        .catch(error => {
+            res.status(500).json({ message: "Error fetching books", error: error.message });
+        });
+});
+
+//  Get book by title
+
+public_users.get('/async-title/:title', async (req, res) => {
+    const title = req.params.title;
+
+    try {
+        const response = await axios.get('http://localhost:5000/');
+        const books = response.data;
+        const filteredBooks = [];
+
+        for (const isbn in books) {
+            if (books[isbn].title.toLowerCase() === title.toLowerCase()) {
+                filteredBooks.push({ isbn, ...books[isbn] });
+            }
+        }
+
+        if (filteredBooks.length > 0) {
+            res.status(200).json(filteredBooks);
+        } else {
+            res.status(404).json({ message: "No books found with this title" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching books", error: error.message });
+    }
 });
 
 module.exports.general = public_users;
